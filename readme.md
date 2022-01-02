@@ -51,6 +51,13 @@ run-wasm = "run --release --package run-wasm --"
 
 4. Thats it, you can now run the commands described earler. You can also run `cargo run-wasm --help` to view all the possible flags.
 
+## Advantages over an equivalent bash/powershell/bat script
+
+* cross platform
+* 0 external dependencies
+* better UX + more robust than anything hacked together with bash/powershell/bat
+* wasm-bindgen-cli version is always in sync with wasm-bindgen version because `cargo update` updates both of them at the same time thanks to being in the same workspace
+
 ## cargo custom command
 
 cargo-run-wasm is not available as a [cargo custom command](https://doc.rust-lang.org/book/ch14-05-extending-cargo.html) as that would cause:
