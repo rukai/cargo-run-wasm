@@ -1,0 +1,69 @@
+# cargo run-wasm
+
+Allows running applications and examples that support wasm as simply as:
+
+```bash
+cargo run-wasm crate_name
+```
+
+or
+
+```bash
+cargo run-wasm --example example_name
+```
+
+In the background it:
+
+1. Compiles the rust project to wasm
+2. Runs wasm-bindgen
+3. Generates an index.html that runs the wasm.
+4. Launches a tiny webserver to serve index.html + your wasm
+
+## Setup
+
+1. Setup your wasm runnable project as a crate within a [cargo workspace](https://doc.rust-lang.org/book/ch14-03-cargo-workspaces.html)
+2. Create a crate in the workspace named run-wasm with:
+
+`Cargo.toml`:
+```toml
+[package]
+name = "run-wasm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cargo-run-wasm = "0.1.0"
+```
+
+`main.rs`:
+```rust
+fn main() {
+    cargo_run_wasm::run_wasm();
+}
+```
+
+3. Create a `.cargo/config` file containing:
+
+```toml
+[alias]
+run-wasm = "run --package run-wasm --"
+```
+
+4. Thats it, you can now run the commands described earler. You can also run `cargo run-wasm --help` to view all the possible flags.
+
+## cargo custom command
+
+cargo-run-wasm is not available as a [cargo custom command](https://doc.rust-lang.org/book/ch14-05-extending-cargo.html) as that would cause:
+
+* issues with mismatches between wasm-bindgen versions
+* issues with keeping a stable interface with the wasm app
+* gives the idea that the command is compatible with every project that uses wasm which is not the case.
+
+## License
+
+Licensed under either of
+
+* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
