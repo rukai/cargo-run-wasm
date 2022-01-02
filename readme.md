@@ -46,7 +46,7 @@ fn main() {
 
 ```toml
 [alias]
-run-wasm = "run --package run-wasm --"
+run-wasm = "run --release --package run-wasm --"
 ```
 
 4. Thats it, you can now run the commands described earler. You can also run `cargo run-wasm --help` to view all the possible flags.

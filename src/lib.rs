@@ -7,20 +7,22 @@ const HELP: &str = "\
 cargo run-wasm
 
 USAGE:
-  cargo run-wasm [FLAGS] NAME
+  cargo run-wasm [OPTIONS] NAME
 
-FLAGS:
-  --release             Compile and run with the release profile
-  --example             Compile and run the example NAME instead of a package NAME
+OPTIONS:
+  --release                    Build in release mode, with optimizations
+  --example                    Build and run the example NAME instead of a package NAME
+  --features <FEATURES>...     Comma separated list of features to activate
 
 NAME:
-  Name of the package (crate) to run.
+  Name of the package (crate) within the workspace to run.
 ";
 
 struct Args {
     release: bool,
     example: bool,
     name: String,
+    features: Option<String>,
 }
 
 impl Args {
@@ -28,6 +30,8 @@ impl Args {
         let mut args = Arguments::from_env();
         let release = args.contains("--release");
         let example = args.contains("--example");
+
+        let features: Option<String> = args.opt_value_from_str("--features").unwrap();
 
         let mut unused_args: Vec<String> = args
             .finish()
@@ -37,16 +41,17 @@ impl Args {
 
         for unused_arg in &unused_args {
             if unused_arg.starts_with('-') {
-                return Err(format!("Unknown flag {}", unused_arg));
+                return Err(format!("Unknown option {}", unused_arg));
             }
         }
 
         match unused_args.len() {
             0 => Err("Expected NAME arg, but there was no NAME arg".to_string()),
             1 => Ok(Args {
-                example,
                 release,
+                example,
                 name: unused_args.remove(0),
+                features,
             }),
             len => Err(format!(
                 "Expected exactly one free arg, but there was {} free args: {:?}",
@@ -92,7 +97,9 @@ pub fn run_wasm() {
     } else {
         cargo_args.extend(["--package", &args.name]);
     }
-
+    if let Some(features) = &args.features {
+        cargo_args.extend(["--features", features]);
+    }
     if args.release {
         cargo_args.push("--release");
     }
