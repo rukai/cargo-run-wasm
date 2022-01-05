@@ -1,5 +1,9 @@
 # cargo run-wasm
 
+[![Crates.io](https://img.shields.io/crates/v/cargo-run-wasm.svg)](https://crates.io/crates/cargo-run-wasm)
+[![Docs](https://docs.rs/cargo-run-wasm/badge.svg)](https://docs.rs/cargo-run-wasm)
+[![dependency status](https://deps.rs/repo/github/rukai/cargo-run-wasm/status.svg)](https://deps.rs/repo/github/rukai/cargo-run-wasm)
+
 Allows running wasm applications and examples as simply as:
 
 ```bash
