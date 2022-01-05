@@ -61,6 +61,18 @@ impl Args {
     }
 }
 
+/// Call this in your run-wasm application.
+///
+/// It will:
+/// 1. Get CLI args from env
+/// 2. Compile the rust project to wasm
+/// 3. Run wasm-bindgen
+/// 4. Generate an index.html that runs the wasm
+/// 5. Launch a tiny webserver to serve index.html + your wasm
+///
+/// It will block forever to keep the webserver running until killed with ctrl-c or similar
+
+/// Blocks forever
 pub fn run_wasm() {
     let args = match Args::from_env() {
         Ok(args) => args,
