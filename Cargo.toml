@@ -1,7 +1,13 @@
 [package]
 name = "cargo-run-wasm"
+repository = "https://github.com/rukai/cargo-run-wasm"
 version = "0.1.0"
 edition = "2018"
+authors = ["Lucas Kent <rubickent@gmail.com>"]
+license = "MIT or APACHE"
+description = "Trivially run wasm applications and examples in the browser"
+keywords = ["cargo", "run", "wasm", "serve", "wasm-bindgen"]
+categories = ["wasm"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

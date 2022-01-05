@@ -1,6 +1,6 @@
 # cargo run-wasm
 
-Allows running applications and examples that support wasm as simply as:
+Allows running wasm applications and examples as simply as:
 
 ```bash
 cargo run-wasm crate_name
