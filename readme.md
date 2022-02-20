@@ -53,7 +53,7 @@ fn main() {
 run-wasm = "run --release --package run-wasm --"
 ```
 
-4. Thats it, you can now run the commands described earler. You can also run `cargo run-wasm --help` to view all the possible flags.
+4. Thats it, you can now run the commands described earlier. You can also run `cargo run-wasm --help` to view all the possible flags.
 
 ## Advantages over an equivalent bash/powershell/bat script
 
