@@ -13,6 +13,8 @@ OPTIONS:
   --release                    Build in release mode, with optimizations
   --example                    Build and run the example NAME instead of a package NAME
   --features <FEATURES>...     Comma separated list of features to activate
+  --host <HOST>                Makes the dev server listen on host (default 'localhost')
+  --port <PORT>                Makes the dev server listen on port (default '8000')
 
 NAME:
   Name of the package (crate) within the workspace to run.
@@ -23,6 +25,8 @@ struct Args {
     example: bool,
     name: String,
     features: Option<String>,
+    host: Option<String>,
+    port: Option<String>,
 }
 
 impl Args {
@@ -32,6 +36,8 @@ impl Args {
         let example = args.contains("--example");
 
         let features: Option<String> = args.opt_value_from_str("--features").unwrap();
+        let host: Option<String> = args.opt_value_from_str("--host").unwrap();
+        let port: Option<String> = args.opt_value_from_str("--port").unwrap();
 
         let mut unused_args: Vec<String> = args
             .finish()
@@ -52,6 +58,8 @@ impl Args {
                 example,
                 name: unused_args.remove(0),
                 features,
+                host,
+                port
             }),
             len => Err(format!(
                 "Expected exactly one free arg, but there was {} free args: {:?}",
@@ -151,11 +159,14 @@ pub fn run_wasm() {
     let index_processed = index_template.replace("{{name}}", &args.name);
     std::fs::write(example_dest.join("index.html"), index_processed).unwrap();
 
+    let host = args.host.unwrap_or("localhost".into());
+    let port = args.port.unwrap_or("8000".into()).parse().expect("Port should be an integer");
+
     // run webserver on destination folder
-    println!("\nServing `{}` on http://localhost:8000", args.name);
+    println!("\nServing `{}` on http://{}:{}", args.name, host, port);
     devserver_lib::run(
-        "localhost",
-        8000,
+        &host,
+        port,
         example_dest.as_os_str().to_str().unwrap(),
         false,
         "",
