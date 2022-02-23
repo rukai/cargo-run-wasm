@@ -59,7 +59,7 @@ impl Args {
                 name: unused_args.remove(0),
                 features,
                 host,
-                port
+                port,
             }),
             len => Err(format!(
                 "Expected exactly one free arg, but there was {} free args: {:?}",
@@ -160,7 +160,11 @@ pub fn run_wasm() {
     std::fs::write(example_dest.join("index.html"), index_processed).unwrap();
 
     let host = args.host.unwrap_or("localhost".into());
-    let port = args.port.unwrap_or("8000".into()).parse().expect("Port should be an integer");
+    let port = args
+        .port
+        .unwrap_or("8000".into())
+        .parse()
+        .expect("Port should be an integer");
 
     // run webserver on destination folder
     println!("\nServing `{}` on http://{}:{}", args.name, host, port);
