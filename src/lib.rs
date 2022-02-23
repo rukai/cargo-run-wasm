@@ -159,10 +159,10 @@ pub fn run_wasm() {
     let index_processed = index_template.replace("{{name}}", &args.name);
     std::fs::write(example_dest.join("index.html"), index_processed).unwrap();
 
-    let host = args.host.unwrap_or("localhost".into());
+    let host = args.host.unwrap_or_else(|| "localhost".into());
     let port = args
         .port
-        .unwrap_or("8000".into())
+        .unwrap_or_else(|| "8000".into())
         .parse()
         .expect("Port should be an integer");
 
