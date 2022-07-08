@@ -23,6 +23,7 @@ NAME:
 struct Args {
     release: bool,
     example: bool,
+    same_crate: bool,
     name: String,
     features: Option<String>,
     host: Option<String>,
@@ -34,6 +35,7 @@ impl Args {
         let mut args = Arguments::from_env();
         let release = args.contains("--release");
         let example = args.contains("--example");
+        let same_crate = args.contains("--same-crate");
 
         let features: Option<String> = args.opt_value_from_str("--features").unwrap();
         let host: Option<String> = args.opt_value_from_str("--host").unwrap();
@@ -56,6 +58,7 @@ impl Args {
             1 => Ok(Args {
                 release,
                 example,
+                same_crate,
                 name: unused_args.remove(0),
                 features,
                 host,
@@ -95,7 +98,7 @@ pub fn run_wasm() {
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let project_root = Path::new(&std::env::var("CARGO_MANIFEST_DIR").unwrap())
         .ancestors()
-        .nth(1)
+        .nth((!args.same_crate) as usize)
         .unwrap()
         .to_path_buf();
     let mut cargo_args = vec![
