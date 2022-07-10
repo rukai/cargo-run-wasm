@@ -13,5 +13,5 @@ categories = ["wasm"]
 
 [dependencies]
 devserver_lib = { version = "0.4.1", default_features = false }
-pico-args = "0.4.2"
+pico-args = "0.5.0"
 wasm-bindgen-cli-support = "0.2.78"
