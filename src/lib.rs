@@ -79,8 +79,6 @@ impl Args {
 /// 5. Launch a tiny webserver to serve index.html + your wasm
 ///
 /// It will block forever to keep the webserver running until killed with ctrl-c or similar
-
-/// Blocks forever
 pub fn run_wasm() {
     let args = match Args::from_env() {
         Ok(args) => args,
