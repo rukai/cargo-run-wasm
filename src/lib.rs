@@ -13,6 +13,7 @@ OPTIONS:
   --release                    Build in release mode, with optimizations
   --example                    Build and run the example NAME instead of a package NAME
   --features <FEATURES>...     Comma separated list of features to activate
+  --build-only                 Only build the WASM artifacts, do not run the dev server
   --host <HOST>                Makes the dev server listen on host (default 'localhost')
   --port <PORT>                Makes the dev server listen on port (default '8000')
 
@@ -25,6 +26,7 @@ struct Args {
     example: bool,
     name: String,
     features: Option<String>,
+    build_only: bool,
     host: Option<String>,
     port: Option<String>,
 }
@@ -34,6 +36,7 @@ impl Args {
         let mut args = Arguments::from_env();
         let release = args.contains("--release");
         let example = args.contains("--example");
+        let build_only = args.contains("--build-only");
 
         let features: Option<String> = args.opt_value_from_str("--features").unwrap();
         let host: Option<String> = args.opt_value_from_str("--host").unwrap();
@@ -58,6 +61,7 @@ impl Args {
                 example,
                 name: unused_args.remove(0),
                 features,
+                build_only,
                 host,
                 port,
             }),
@@ -157,20 +161,22 @@ pub fn run_wasm() {
     let index_processed = index_template.replace("{{name}}", &args.name);
     std::fs::write(example_dest.join("index.html"), index_processed).unwrap();
 
-    let host = args.host.unwrap_or_else(|| "localhost".into());
-    let port = args
-        .port
-        .unwrap_or_else(|| "8000".into())
-        .parse()
-        .expect("Port should be an integer");
+    if !args.build_only {
+        let host = args.host.unwrap_or_else(|| "localhost".into());
+        let port = args
+            .port
+            .unwrap_or_else(|| "8000".into())
+            .parse()
+            .expect("Port should be an integer");
 
-    // run webserver on destination folder
-    println!("\nServing `{}` on http://{}:{}", args.name, host, port);
-    devserver_lib::run(
-        &host,
-        port,
-        example_dest.as_os_str().to_str().unwrap(),
-        false,
-        "",
-    );
+        // run webserver on destination folder
+        println!("\nServing `{}` on http://{}:{}", args.name, host, port);
+        devserver_lib::run(
+            &host,
+            port,
+            example_dest.as_os_str().to_str().unwrap(),
+            false,
+            "",
+        );
+    }
 }
