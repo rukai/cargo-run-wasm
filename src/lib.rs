@@ -1,6 +1,6 @@
 use pico_args::Arguments;
 use std::env;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 const HELP: &str = "\
@@ -12,6 +12,7 @@ USAGE:
 OPTIONS:
   --release                    Build in release mode, with optimizations
   --example                    Build and run the example NAME instead of a package NAME
+  --template <PATH>            Path to HTML template for index page generation
   --features <FEATURES>...     Comma separated list of features to activate
   --host <HOST>                Makes the dev server listen on host (default 'localhost')
   --port <PORT>                Makes the dev server listen on port (default '8000')
@@ -24,6 +25,7 @@ struct Args {
     release: bool,
     example: bool,
     name: String,
+    template: Option<PathBuf>,
     features: Option<String>,
     host: Option<String>,
     port: Option<String>,
@@ -35,6 +37,7 @@ impl Args {
         let release = args.contains("--release");
         let example = args.contains("--example");
 
+        let template: Option<PathBuf> = args.opt_value_from_str("--template").unwrap();
         let features: Option<String> = args.opt_value_from_str("--features").unwrap();
         let host: Option<String> = args.opt_value_from_str("--host").unwrap();
         let port: Option<String> = args.opt_value_from_str("--port").unwrap();
@@ -57,6 +60,7 @@ impl Args {
                 release,
                 example,
                 name: unused_args.remove(0),
+                template,
                 features,
                 host,
                 port,
@@ -153,7 +157,11 @@ pub fn run_wasm() {
         .unwrap();
 
     // process template index.html and write to the destination folder
-    let index_template = include_str!("index.template.html");
+    let index_template = if let Some(template) = args.template {
+        std::fs::read_to_string(template).expect("Could not read HTML template")
+    } else {
+        include_str!("index.template.html").to_string()
+    };
     let index_processed = index_template.replace("{{name}}", &args.name);
     std::fs::write(example_dest.join("index.html"), index_processed).unwrap();
 
