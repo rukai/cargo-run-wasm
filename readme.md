@@ -74,6 +74,13 @@ cargo-run-wasm is not available as a [cargo custom command](https://doc.rust-lan
 * issues with keeping a stable interface with the wasm app
 * gives the idea that the command is compatible with every project that uses wasm which is not the case.
 
+## MSRV
+
+Since this tool has a trivial implementation the MSRV is at 1.59 and will only be increased if dependencies require it.
+If it is ever increased it must be below the MSRV of maintained branches of important users such as [wgpu](https://github.com/gfx-rs/wgpu#msrv-policy) and [winit](https://github.com/rust-windowing/winit).
+
+The MSRV is enforced in CI and locally via the `rust-toolchain.toml` file.
+
 ## License
 
 Licensed under either of
