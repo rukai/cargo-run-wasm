@@ -29,6 +29,7 @@ In the background it:
 2. Create a crate in the workspace named run-wasm with:
 
 `Cargo.toml`:
+
 ```toml
 [package]
 name = "run-wasm"
@@ -40,6 +41,7 @@ cargo-run-wasm = "0.1.0"
 ```
 
 `main.rs`:
+
 ```rust
 fn main() {
     cargo_run_wasm::run_wasm();
@@ -54,6 +56,8 @@ run-wasm = "run --release --package run-wasm --"
 ```
 
 4. Thats it, you can now run the commands described earlier. You can also run `cargo run-wasm --help` to view all the possible flags.
+
+Note: If you want to avoid restructuring your project into a proper workspace you can do so by combining your workspace and crate `Cargo.toml` into a single file like [winit does](https://github.com/rust-windowing/winit/blob/master/Cargo.toml#L144).
 
 ## Advantages over an equivalent bash/powershell/bat script
 
@@ -74,7 +78,7 @@ cargo-run-wasm is not available as a [cargo custom command](https://doc.rust-lan
 
 Licensed under either of
 
-* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
+* MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 at your option.
