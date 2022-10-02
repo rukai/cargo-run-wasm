@@ -44,7 +44,7 @@ cargo-run-wasm = "0.1.0"
 
 ```rust
 fn main() {
-    cargo_run_wasm::run_wasm_with_css("");
+    cargo_run_wasm::run_wasm_with_css("body { margin: 0px; }");
 }
 ```
 

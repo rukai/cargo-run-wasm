@@ -83,8 +83,17 @@ impl Args {
 /// 5. Launch a tiny webserver to serve index.html + your wasm
 ///
 /// It will block forever to keep the webserver running until killed with ctrl-c or similar
+///
+/// The css argument will be included directly into a `<style></style>` element in the generated page.
+/// By default the body element will include some margin, so for full page apps you will want to remove that by calling like:
+/// ```no_run
+///     cargo_run_wasm::run_wasm_with_css("body { margin: 0px; }");
+/// ```
 pub fn run_wasm_with_css(css: &str) {
     // validate css
+    //
+    // Someone could easily get around this with some extra spaces
+    // but im not about to import regex or do a complicated implementation by hand.
     if css.contains("</style>") {
         panic!(
             "`</style>` detected in the css. This is disallowed to prevent injecting elements into the DOM."
