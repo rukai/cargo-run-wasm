@@ -83,7 +83,14 @@ impl Args {
 /// 5. Launch a tiny webserver to serve index.html + your wasm
 ///
 /// It will block forever to keep the webserver running until killed with ctrl-c or similar
-pub fn run_wasm() {
+pub fn run_wasm_with_css(css: &str) {
+    // validate css
+    if css.contains("</style>") {
+        panic!(
+            "`</style>` detected in the css. This is disallowed to prevent injecting elements into the DOM."
+        )
+    }
+
     let args = match Args::from_env() {
         Ok(args) => args,
         Err(err) => {
@@ -158,7 +165,10 @@ pub fn run_wasm() {
 
     // process template index.html and write to the destination folder
     let index_template = include_str!("index.template.html");
-    let index_processed = index_template.replace("{{name}}", &args.name);
+    let index_processed = index_template
+        .replace("{{name}}", &args.name)
+        // This is fine because a replaced {{name}} cant contain `{{css}} ` due to `{` not being valid in a crate name
+        .replace("{{css}}", css);
     std::fs::write(example_dest.join("index.html"), index_processed).unwrap();
 
     if !args.build_only {
