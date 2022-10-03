@@ -84,7 +84,7 @@ impl Args {
 ///
 /// It will block forever to keep the webserver running until killed with ctrl-c or similar
 ///
-/// The css argument will be included directly into a `<style></style>` element in the generated page.
+/// The css argument will be included directly into a `<style type="text/css"></style>` element in the generated page.
 /// By default the body element will include some margin, so for full page apps you will want to remove that by calling like:
 /// ```no_run
 ///     cargo_run_wasm::run_wasm_with_css("body { margin: 0px; }");
@@ -152,8 +152,9 @@ pub fn run_wasm_with_css(css: &str) {
     }
 
     // run wasm-bindgen on wasm file output by cargo, write to the destination folder
-    let target_profile =
-        Path::new("target/wasm-examples-target/wasm32-unknown-unknown").join(profile);
+    let target_profile = project_root
+        .join("target/wasm-examples-target/wasm32-unknown-unknown")
+        .join(profile);
     let wasm_source = if args.example {
         target_profile.join("examples")
     } else {
