@@ -21,7 +21,7 @@ jobs:
       matrix:
         include:
           # By default only linux has a release job.
-          # This is to keep within the 5GB cache limit as rust can use a lot of space!
+          # This is to keep within the 10GB cache limit as rust can use a lot of space!
           # There are also more limits here but I don't think there is much risk of hitting them: https://docs.github.com/en/actions/learn-github-actions/usage-limits-billing-and-administration#usage-limits
           #
           # If you don't use much of the cache feel free to add more release jobs.
@@ -42,14 +42,6 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
     - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        # `toolchain: stable` results in the latest stable toolchain being installed.
-        # However as soon as we use cargo the real version specified in rust-toolchain.toml replaces the stable toolchain.
-        #
-        # When something like https://github.com/actions-rs/toolchain/pull/184 lands we can delete this line and get a nice speedup
-        profile: minimal
-        toolchain: stable
     - uses: Swatinem/rust-cache@v1
       with:
         # rust-cache already handles all the sane defaults for caching rust builds.
@@ -70,3 +62,13 @@ jobs:
       run: cargo hack --feature-powerset clippy --all-targets --locked ${{ matrix.cargo_profile }} -- -D warnings
     - name: Ensure that tests pass under every possible combination of features
       run: cargo hack --feature-powerset test ${{ matrix.cargo_profile }}
+    - name: Ensure that tests did not create or modify any files that arent .gitignore'd
+      # This is important because we are checking in the Cargo.lock file.
+      # We want to fail CI if the Cargo.toml changed without including the corresponding Cargo.lock changes.
+      # Its also just generally nice to ensure your tests dont leave around unexpected files.
+      shell: bash
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          git status
+          exit 1
+        fi
