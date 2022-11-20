@@ -6,70 +6,115 @@ use std::process::Command;
 const HELP: &str = "\
 cargo run-wasm
 
+Hosts a binary or example of the local package as wasm in a local web server.
+
 USAGE:
-  cargo run-wasm [OPTIONS] NAME
+  cargo run-wasm [OPTIONS]
 
 OPTIONS:
-  --release                    Build in release mode, with optimizations
-  --example                    Build and run the example NAME instead of a package NAME
-  --features <FEATURES>...     Comma separated list of features to activate
-  --build-only                 Only build the WASM artifacts, do not run the dev server
-  --host <HOST>                Makes the dev server listen on host (default 'localhost')
-  --port <PORT>                Makes the dev server listen on port (default '8000')
+  cargo run-wasm custom options:
+    --build-only                 Only build the WASM artifacts, do not run the dev server
+    --host <HOST>                Makes the dev server listen on host (default 'localhost')
+    --port <PORT>                Makes the dev server listen on port (default '8000')
 
-NAME:
-  Name of the package (crate) within the workspace to run.
+  cargo run default options:
+    -q, --quiet                     Do not print cargo log messages
+        --bin [<NAME>]              Name of the bin target to run
+        --example [<NAME>]          Name of the example target to run
+    -p, --package [<SPEC>...]       Package with the target to run
+    -v, --verbose                   Use verbose output (-vv very verbose/build.rs output)
+    -j, --jobs <N>                  Number of parallel jobs, defaults to # of CPUs
+        --color <WHEN>              Coloring: auto, always, never
+        --keep-going                Do not abort the build as soon as there is an error (unstable)
+        --frozen                    Require Cargo.lock and cache are up to date
+    -r, --release                   Build artifacts in release mode, with optimizations
+        --locked                    Require Cargo.lock is up to date
+        --profile <PROFILE-NAME>    Build artifacts with the specified profile
+    -F, --features <FEATURES>       Space or comma separated list of features to activate
+        --offline                   Run without accessing the network
+        --all-features              Activate all available features
+        --config <KEY=VALUE>        Override a configuration value
+        --no-default-features       Do not activate the `default` feature
+    -Z <FLAG>                       Unstable (nightly-only) flags to Cargo, see 'cargo -Z help' for
+                                    details
+        --manifest-path <PATH>      Path to Cargo.toml
+        --message-format <FMT>      Error format
+        --unit-graph                Output build graph in JSON (unstable)
+        --ignore-rust-version       Ignore `rust-version` specification in packages
+        --timings[=<FMTS>...]       Timing output formats (unstable) (comma separated): html, json
+    -h, --help                      Print help information
+
+At least one of `--package`, `--bin` or `--example` must be used.
+
+Normally you can run just `cargo run` to run the main binary of the current package.
+The equivalent of that is `cargo run-wasm --package name_of_current_package`
 ";
 
 struct Args {
+    help: bool,
     release: bool,
-    example: bool,
-    name: String,
-    features: Option<String>,
     build_only: bool,
     host: Option<String>,
     port: Option<String>,
+    build_args: Vec<String>,
+    package: Option<String>,
+    example: Option<String>,
+    bin: Option<String>,
+    binary_name: String,
 }
 
 impl Args {
     pub fn from_env() -> Result<Self, String> {
         let mut args = Arguments::from_env();
         let release = args.contains("--release");
-        let example = args.contains("--example");
         let build_only = args.contains("--build-only");
+        let help = args.contains("--help") || args.contains("-h");
 
-        let features: Option<String> = args.opt_value_from_str("--features").unwrap();
         let host: Option<String> = args.opt_value_from_str("--host").unwrap();
         let port: Option<String> = args.opt_value_from_str("--port").unwrap();
 
-        let mut unused_args: Vec<String> = args
+        let package: Option<String> = args.opt_value_from_str("--package").unwrap();
+        let example: Option<String> = args.opt_value_from_str("--example").unwrap();
+        let bin: Option<String> = args.opt_value_from_str("--bin").unwrap();
+
+        let banned_options = ["--target", "--target-dir"];
+        for option in banned_options {
+            if args
+                .opt_value_from_str::<_, String>(option)
+                .unwrap()
+                .is_some()
+            {
+                return Err(format!(
+                    "cargo-run-wasm does not support the {option} option"
+                ));
+            }
+        }
+
+        let binary_name = match example.as_ref().or(bin.as_ref()).or(package.as_ref()) {
+            Some(name) => name.clone(),
+            None => {
+                return Err("Need to use at least one of `--package NAME`, `--example NAME` `--bin NAME`.\nRun cargo run-wasm --help for more info.".to_owned());
+            }
+        };
+
+        let build_args = args
             .finish()
             .into_iter()
             .map(|x| x.into_string().unwrap())
             .collect();
 
-        for unused_arg in &unused_args {
-            if unused_arg.starts_with('-') {
-                return Err(format!("Unknown option {}", unused_arg));
-            }
-        }
-
-        match unused_args.len() {
-            0 => Err("Expected NAME arg, but there was no NAME arg".to_string()),
-            1 => Ok(Args {
-                release,
-                example,
-                name: unused_args.remove(0),
-                features,
-                build_only,
-                host,
-                port,
-            }),
-            len => Err(format!(
-                "Expected exactly one free arg, but there was {} free args: {:?}",
-                len, unused_args
-            )),
-        }
+        Ok(Args {
+            help,
+            release,
+            build_only,
+            host,
+            port,
+            build_args,
+            package,
+            example,
+            bin,
+            binary_name,
+        })
     }
 }
 
@@ -107,6 +152,11 @@ pub fn run_wasm_with_css(css: &str) {
             return;
         }
     };
+    if args.help {
+        println!("{}", HELP);
+        return;
+    }
+
     let profile = if args.release { "release" } else { "debug" };
 
     // build wasm example via cargo
@@ -130,17 +180,21 @@ pub fn run_wasm_with_css(css: &str) {
         "--target-dir",
         "target/wasm-examples-target",
     ];
-    if args.example {
-        cargo_args.extend(["--example", &args.name]);
-    } else {
-        cargo_args.extend(["--package", &args.name]);
+
+    if let Some(package) = args.package.as_ref() {
+        cargo_args.extend(["--package", package.as_str()]);
     }
-    if let Some(features) = &args.features {
-        cargo_args.extend(["--features", features]);
+    if let Some(example) = args.example.as_ref() {
+        cargo_args.extend(["--example", example.as_str()]);
+    }
+    if let Some(bin) = args.bin.as_ref() {
+        cargo_args.extend(["--bin", bin.as_str()]);
     }
     if args.release {
         cargo_args.push("--release");
     }
+
+    cargo_args.extend(args.build_args.iter().map(|x| x.as_str()));
     let status = Command::new(&cargo)
         .current_dir(&project_root)
         .args(&cargo_args)
@@ -155,14 +209,21 @@ pub fn run_wasm_with_css(css: &str) {
     let target_profile = project_root
         .join("target/wasm-examples-target/wasm32-unknown-unknown")
         .join(profile);
-    let wasm_source = if args.example {
+    let wasm_source = if args.example.is_some() {
         target_profile.join("examples")
     } else {
         target_profile
     }
-    .join(format!("{}.wasm", &args.name));
+    .join(format!("{}.wasm", args.binary_name));
 
-    let example_dest = project_root.join("target/wasm-examples").join(&args.name);
+    if !wasm_source.exists() {
+        println!("There is no binary at {wasm_source:?}, maybe you used `--package NAME` on a package that has no binary?");
+        return;
+    }
+
+    let example_dest = project_root
+        .join("target/wasm-examples")
+        .join(&args.binary_name);
     std::fs::create_dir_all(&example_dest).unwrap();
     let mut bindgen = wasm_bindgen_cli_support::Bindgen::new();
     bindgen
@@ -176,7 +237,7 @@ pub fn run_wasm_with_css(css: &str) {
     // process template index.html and write to the destination folder
     let index_template = include_str!("index.template.html");
     let index_processed = index_template
-        .replace("{{name}}", &args.name)
+        .replace("{{name}}", &args.binary_name)
         // This is fine because a replaced {{name}} cant contain `{{css}} ` due to `{` not being valid in a crate name
         .replace("{{css}}", css);
     std::fs::write(example_dest.join("index.html"), index_processed).unwrap();
@@ -190,7 +251,10 @@ pub fn run_wasm_with_css(css: &str) {
             .expect("Port should be an integer");
 
         // run webserver on destination folder
-        println!("\nServing `{}` on http://{}:{}", args.name, host, port);
+        println!(
+            "\nServing `{}` on http://{}:{}",
+            args.binary_name, host, port
+        );
         devserver_lib::run(
             &host,
             port,
