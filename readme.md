@@ -7,13 +7,19 @@
 Allows running wasm applications and examples as simply as:
 
 ```bash
-cargo run-wasm crate_name
+cargo run-wasm --example example_name
 ```
 
 or
 
 ```bash
-cargo run-wasm --example example_name
+cargo run-wasm --package crate_name
+```
+
+or
+
+```bash
+cargo run-wasm --bin bin_name
 ```
 
 In the background it:
