@@ -91,6 +91,16 @@ If it is ever increased it must be below the MSRV of maintained branches of impo
 
 The MSRV is enforced in CI and locally via the `rust-toolchain.toml` file.
 
+## Alternatives
+
+* [wasm-server-runner](https://github.com/jakobhellermann/wasm-server-runner)
+  * Advantages
+    * Integrates better with cargo
+    * Doesnt require any setup to live within the project
+  * Disadvantages
+    * Requires the user to run `cargo install wasm-server-runner`
+    * wasm-bindgen versions can go out of sync causing issues [like this](https://github.com/jakobhellermann/wasm-server-runner/issues/2)
+
 ## License
 
 Licensed under either of
