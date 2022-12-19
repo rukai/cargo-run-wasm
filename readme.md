@@ -43,7 +43,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cargo-run-wasm = "0.2.0"
+cargo-run-wasm = "0.3.0"
 ```
 
 `main.rs`:
