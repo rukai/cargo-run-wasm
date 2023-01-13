@@ -1,3 +1,6 @@
+pub mod metadata;
+
+use metadata::CargoMetadata;
 use pico_args::Arguments;
 use std::env;
 use std::path::Path;
@@ -161,25 +164,20 @@ pub fn run_wasm_with_css(css: &str) {
 
     // build wasm example via cargo
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
-    let project_root = Path::new(&std::env::var("CARGO_MANIFEST_DIR").unwrap())
-        .ancestors()
-        .nth(1)
-        .unwrap()
-        .to_path_buf();
-    let mut cargo_args = vec![
-        "build",
-        "--target",
-        "wasm32-unknown-unknown",
-        // It is common to setup a faster linker such as mold or lld to run for just your native target.
-        // It cant be set for wasm as wasm doesnt support building with these linkers.
-        // This results in a separate rustflags value for native and wasm builds.
-        // Currently rust triggers a full rebuild every time the rustflags value changes.
-        //
-        // Therefore we have this hack where we use a different target dir for wasm builds to avoid constantly triggering full rebuilds.
-        // When this issue is resolved we might be able to remove this hack: https://github.com/rust-lang/cargo/issues/8716
-        "--target-dir",
-        "target/wasm-examples-target",
-    ];
+
+    let project_root = Path::new(&std::env::var("CARGO_MANIFEST_DIR").unwrap()).to_path_buf();
+    let metadata = CargoMetadata::new(&cargo, &project_root);
+    let target_dir = &metadata.target_directory;
+    let mut cargo_args = vec!["build", "--target", "wasm32-unknown-unknown"];
+    // It is common to setup a faster linker such as mold or lld to run for just your native target.
+    // It cant be set for wasm as wasm doesnt support building with these linkers.
+    // This results in a separate rustflags value for native and wasm builds.
+    // Currently rust triggers a full rebuild every time the rustflags value changes.
+    //
+    // Therefore we have this hack where we use a different target dir for wasm builds to avoid constantly triggering full rebuilds.
+    // When this issue is resolved we might be able to remove this hack: https://github.com/rust-lang/cargo/issues/8716
+    let target_target = target_dir.clone() + "/wasm-examples-target";
+    cargo_args.extend(["--target-dir", &target_target]);
 
     if let Some(package) = args.package.as_ref() {
         cargo_args.extend(["--package", package.as_str()]);
@@ -204,10 +202,11 @@ pub fn run_wasm_with_css(css: &str) {
         // We can return without printing anything because cargo will have already displayed an appropriate error.
         return;
     }
+    let target_path = Path::new(target_dir);
 
     // run wasm-bindgen on wasm file output by cargo, write to the destination folder
-    let target_profile = project_root
-        .join("target/wasm-examples-target/wasm32-unknown-unknown")
+    let target_profile = target_path
+        .join("wasm-examples-target/wasm32-unknown-unknown")
         .join(profile);
     let wasm_source = if args.example.is_some() {
         target_profile.join("examples")
@@ -221,9 +220,7 @@ pub fn run_wasm_with_css(css: &str) {
         return;
     }
 
-    let example_dest = project_root
-        .join("target/wasm-examples")
-        .join(&args.binary_name);
+    let example_dest = target_path.join("wasm-examples").join(&args.binary_name);
     std::fs::create_dir_all(&example_dest).unwrap();
     let mut bindgen = wasm_bindgen_cli_support::Bindgen::new();
     bindgen
