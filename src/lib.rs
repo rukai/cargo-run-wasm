@@ -1,6 +1,5 @@
-pub mod metadata;
+pub mod target_dir;
 
-use metadata::CargoMetadata;
 use pico_args::Arguments;
 use std::env;
 use std::path::Path;
@@ -166,8 +165,7 @@ pub fn run_wasm_with_css(css: &str) {
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
 
     let project_root = Path::new(&std::env::var("CARGO_MANIFEST_DIR").unwrap()).to_path_buf();
-    let metadata = CargoMetadata::new(&cargo, &project_root);
-    let target_dir = &metadata.target_directory;
+    let target_dir = target_dir::get_target_directory(&cargo, &project_root);
     let mut cargo_args = vec!["build", "--target", "wasm32-unknown-unknown"];
     // It is common to setup a faster linker such as mold or lld to run for just your native target.
     // It cant be set for wasm as wasm doesnt support building with these linkers.
@@ -202,7 +200,7 @@ pub fn run_wasm_with_css(css: &str) {
         // We can return without printing anything because cargo will have already displayed an appropriate error.
         return;
     }
-    let target_path = Path::new(target_dir);
+    let target_path = Path::new(&target_dir);
 
     // run wasm-bindgen on wasm file output by cargo, write to the destination folder
     let target_profile = target_path
