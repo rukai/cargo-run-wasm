@@ -1,6 +1,6 @@
 //! Get the target directory for cargo-run-wasm
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Output, Stdio},
 };
 
@@ -24,7 +24,7 @@ impl CargoMetadata {
     }
 }
 
-pub fn get_target_directory(cargo_executable: &str, manifest_dir: &Path) -> String {
+pub fn get_target_directory(cargo_executable: &str, manifest_dir: &Path) -> PathBuf {
     // Launch 'cargo metadata' pessimistically
     let mut child = Command::new(cargo_executable)
         .current_dir(manifest_dir)
@@ -36,18 +36,18 @@ pub fn get_target_directory(cargo_executable: &str, manifest_dir: &Path) -> Stri
     let direct_target = manifest_dir.join("target");
     if direct_target.exists() {
         let _ = child.kill();
-        return direct_target.to_string_lossy().to_string();
+        return direct_target;
     }
     if let Some(parent) = manifest_dir.parent() {
         let parent_target = parent.join("target");
         if parent_target.exists() {
             let _ = child.kill();
-            return parent_target.to_string_lossy().to_string();
+            return parent_target;
         }
     }
     // Then wait on cargo metadata to finish
     let output = child
         .wait_with_output()
         .expect("Failed to wait on cargo metadata");
-    CargoMetadata::new(output).target_directory
+    PathBuf::from(CargoMetadata::new(output).target_directory)
 }
