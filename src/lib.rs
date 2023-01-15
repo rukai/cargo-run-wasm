@@ -2,6 +2,7 @@ pub mod target_dir;
 
 use pico_args::Arguments;
 use std::env;
+use std::ffi::OsStr;
 use std::path::Path;
 use std::process::Command;
 
@@ -166,31 +167,36 @@ pub fn run_wasm_with_css(css: &str) {
 
     let project_root = Path::new(&std::env::var("CARGO_MANIFEST_DIR").unwrap()).to_path_buf();
     let target_dir = target_dir::get_target_directory(&cargo, &project_root);
-    let mut cargo_args = vec!["build", "--target", "wasm32-unknown-unknown"];
-    // It is common to setup a faster linker such as mold or lld to run for just your native target.
-    // It cant be set for wasm as wasm doesnt support building with these linkers.
-    // This results in a separate rustflags value for native and wasm builds.
-    // Currently rust triggers a full rebuild every time the rustflags value changes.
-    //
-    // Therefore we have this hack where we use a different target dir for wasm builds to avoid constantly triggering full rebuilds.
-    // When this issue is resolved we might be able to remove this hack: https://github.com/rust-lang/cargo/issues/8716
-    let target_target = target_dir.clone() + "/wasm-examples-target";
-    cargo_args.extend(["--target-dir", &target_target]);
+    let target_target = target_dir.join("wasm-examples-target");
+    let mut cargo_args: Vec<&OsStr> = vec![
+        "build".as_ref(),
+        "--target".as_ref(),
+        "wasm32-unknown-unknown".as_ref(),
+        // It is common to setup a faster linker such as mold or lld to run for just your native target.
+        // It cant be set for wasm as wasm doesnt support building with these linkers.
+        // This results in a separate rustflags value for native and wasm builds.
+        // Currently rust triggers a full rebuild every time the rustflags value changes.
+        //
+        // Therefore we have this hack where we use a different target dir for wasm builds to avoid constantly triggering full rebuilds.
+        // When this issue is resolved we might be able to remove this hack: https://github.com/rust-lang/cargo/issues/8716
+        "--target-dir".as_ref(),
+        &target_target.as_ref(),
+    ];
 
     if let Some(package) = args.package.as_ref() {
-        cargo_args.extend(["--package", package.as_str()]);
+        cargo_args.extend([AsRef::<OsStr>::as_ref("--package"), package.as_ref()]);
     }
     if let Some(example) = args.example.as_ref() {
-        cargo_args.extend(["--example", example.as_str()]);
+        cargo_args.extend([AsRef::<OsStr>::as_ref("--example"), example.as_ref()]);
     }
     if let Some(bin) = args.bin.as_ref() {
-        cargo_args.extend(["--bin", bin.as_str()]);
+        cargo_args.extend([AsRef::<OsStr>::as_ref("--bin"), bin.as_ref()]);
     }
     if args.release {
-        cargo_args.push("--release");
+        cargo_args.push("--release".as_ref());
     }
 
-    cargo_args.extend(args.build_args.iter().map(|x| x.as_str()));
+    cargo_args.extend(args.build_args.iter().map(|x| AsRef::<OsStr>::as_ref(x)));
     let status = Command::new(&cargo)
         .current_dir(&project_root)
         .args(&cargo_args)
@@ -200,12 +206,9 @@ pub fn run_wasm_with_css(css: &str) {
         // We can return without printing anything because cargo will have already displayed an appropriate error.
         return;
     }
-    let target_path = Path::new(&target_dir);
 
     // run wasm-bindgen on wasm file output by cargo, write to the destination folder
-    let target_profile = target_path
-        .join("wasm-examples-target/wasm32-unknown-unknown")
-        .join(profile);
+    let target_profile = target_target.join("wasm32-unknown-unknown").join(profile);
     let wasm_source = if args.example.is_some() {
         target_profile.join("examples")
     } else {
@@ -218,7 +221,7 @@ pub fn run_wasm_with_css(css: &str) {
         return;
     }
 
-    let example_dest = target_path.join("wasm-examples").join(&args.binary_name);
+    let example_dest = target_dir.join("wasm-examples").join(&args.binary_name);
     std::fs::create_dir_all(&example_dest).unwrap();
     let mut bindgen = wasm_bindgen_cli_support::Bindgen::new();
     bindgen
