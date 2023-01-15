@@ -184,7 +184,7 @@ pub fn run_wasm_with_css(css: &str) {
         // Therefore we have this hack where we use a different target dir for wasm builds to avoid constantly triggering full rebuilds.
         // When this issue is resolved we might be able to remove this hack: https://github.com/rust-lang/cargo/issues/8716
         "--target-dir".as_ref(),
-        &target_target.as_ref(),
+        target_target.as_os_str(),
     ];
 
     if let Some(package) = args.package.as_ref() {
@@ -200,7 +200,7 @@ pub fn run_wasm_with_css(css: &str) {
         cargo_args.push("--release".as_ref());
     }
 
-    cargo_args.extend(args.build_args.iter().map(|x| AsRef::<OsStr>::as_ref(x)));
+    cargo_args.extend(args.build_args.iter().map(AsRef::<OsStr>::as_ref));
     let status = Command::new(&cargo)
         .current_dir(&workspace_root)
         .args(&cargo_args)
