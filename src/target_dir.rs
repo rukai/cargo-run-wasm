@@ -6,6 +6,7 @@ use std::{
 
 struct CargoMetadata {
     target_directory: String,
+    workspace_root: String,
 }
 
 impl CargoMetadata {
@@ -20,11 +21,28 @@ impl CargoMetadata {
             .as_str()
             .unwrap()
             .to_owned();
-        Self { target_directory }
+        let workspace_root = obj
+            .get("workspace_root")
+            .expect("Should have target directory")
+            .as_str()
+            .unwrap()
+            .to_owned();
+        Self {
+            target_directory,
+            workspace_root,
+        }
     }
 }
 
-pub fn get_target_directory(cargo_executable: &str, manifest_dir: &Path) -> PathBuf {
+pub(crate) struct CargoDirectories {
+    pub workspace_root: PathBuf,
+    pub target_directory: PathBuf,
+}
+
+pub(crate) fn get_target_directory(
+    cargo_executable: &str,
+    manifest_dir: &Path,
+) -> CargoDirectories {
     // Launch 'cargo metadata' pessimistically
     let mut child = Command::new(cargo_executable)
         .current_dir(manifest_dir)
@@ -36,18 +54,28 @@ pub fn get_target_directory(cargo_executable: &str, manifest_dir: &Path) -> Path
     let direct_target = manifest_dir.join("target");
     if direct_target.exists() {
         let _ = child.kill();
-        return direct_target;
+        return CargoDirectories {
+            target_directory: direct_target,
+            workspace_root: manifest_dir.to_path_buf(),
+        };
     }
     if let Some(parent) = manifest_dir.parent() {
         let parent_target = parent.join("target");
         if parent_target.exists() {
             let _ = child.kill();
-            return parent_target;
+            return CargoDirectories {
+                workspace_root: parent.to_path_buf(),
+                target_directory: parent_target,
+            };
         }
     }
     // Then wait on cargo metadata to finish
     let output = child
         .wait_with_output()
         .expect("Failed to wait on cargo metadata");
-    PathBuf::from(CargoMetadata::new(output).target_directory)
+    let meta_result = CargoMetadata::new(output);
+    CargoDirectories {
+        workspace_root: PathBuf::from(meta_result.workspace_root),
+        target_directory: PathBuf::from(meta_result.target_directory),
+    }
 }
