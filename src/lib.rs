@@ -5,6 +5,7 @@ use std::env;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::process::Command;
+use target_dir::CargoDirectories;
 
 const HELP: &str = "\
 cargo run-wasm
@@ -166,8 +167,11 @@ pub fn run_wasm_with_css(css: &str) {
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
 
     let project_root = Path::new(&std::env::var("CARGO_MANIFEST_DIR").unwrap()).to_path_buf();
-    let target_dir = target_dir::get_target_directory(&cargo, &project_root);
-    let target_target = target_dir.join("wasm-examples-target");
+    let CargoDirectories {
+        workspace_root,
+        target_directory,
+    } = target_dir::get_target_directory(&cargo, &project_root);
+    let target_target = target_directory.join("wasm-examples-target");
     let mut cargo_args: Vec<&OsStr> = vec![
         "build".as_ref(),
         "--target".as_ref(),
@@ -198,7 +202,7 @@ pub fn run_wasm_with_css(css: &str) {
 
     cargo_args.extend(args.build_args.iter().map(|x| AsRef::<OsStr>::as_ref(x)));
     let status = Command::new(&cargo)
-        .current_dir(&project_root)
+        .current_dir(&workspace_root)
         .args(&cargo_args)
         .status()
         .unwrap();
@@ -221,7 +225,9 @@ pub fn run_wasm_with_css(css: &str) {
         return;
     }
 
-    let example_dest = target_dir.join("wasm-examples").join(&args.binary_name);
+    let example_dest = target_directory
+        .join("wasm-examples")
+        .join(&args.binary_name);
     std::fs::create_dir_all(&example_dest).unwrap();
     let mut bindgen = wasm_bindgen_cli_support::Bindgen::new();
     bindgen
