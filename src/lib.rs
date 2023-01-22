@@ -162,7 +162,6 @@ pub fn run_wasm_with_css(css: &str) {
 
     let profile = if args.release { "release" } else { "debug" };
 
-    // build wasm example via cargo
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
 
     let CargoDirectories {

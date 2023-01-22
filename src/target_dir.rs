@@ -1,8 +1,6 @@
 //! Get the target directory for cargo-run-wasm
-use std::{
-    path::PathBuf,
-    process::{Command, Output, Stdio},
-};
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 pub struct CargoDirectories {
     pub workspace_root: PathBuf,
@@ -10,7 +8,13 @@ pub struct CargoDirectories {
 }
 
 impl CargoDirectories {
-    fn from_cargo(output: Output) -> Self {
+    fn from_cargo(cargo_executable: &str, manifest_dir: &Path) -> Self {
+        let output = Command::new(cargo_executable)
+            .current_dir(manifest_dir)
+            .args(["metadata", "--no-deps", "--format-version=1"])
+            .output()
+            .unwrap();
+
         let result = String::from_utf8(output.stdout).expect("Command output should be utf-8");
         let value = serde_json::from_str::<serde_json::Value>(&result)
             .expect("Should match the CargoMetadata definition");
@@ -36,38 +40,28 @@ impl CargoDirectories {
     }
 
     pub fn new(cargo_executable: &str) -> CargoDirectories {
-        let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+        let mut manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
 
-        // Launch 'cargo metadata' pessimistically
-        let mut child = Command::new(cargo_executable)
-            .current_dir(&manifest_dir)
-            .args(["metadata", "--no-deps", "--format-version=1"])
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("Should be able to run cargo metadata");
-        // Then see if we can find the target directory ourselves
-        let direct_target = manifest_dir.join("target");
-        if direct_target.exists() {
-            let _ = child.kill();
-            return CargoDirectories {
-                target_directory: direct_target,
-                workspace_root: manifest_dir,
-            };
-        }
-        if let Some(parent) = manifest_dir.parent() {
-            let parent_target = parent.join("target");
-            if parent_target.exists() {
-                let _ = child.kill();
+        // First try to find the target directory ourselves
+        // Its possible for this to return false positives if the user leaves a directory named target in the wrong spot.
+        loop {
+            let target = manifest_dir.join("target");
+            if target.exists() {
                 return CargoDirectories {
-                    workspace_root: parent.to_path_buf(),
-                    target_directory: parent_target,
+                    target_directory: target,
+                    workspace_root: manifest_dir,
                 };
             }
+            if !manifest_dir.pop() {
+                break;
+            }
         }
-        // Then wait on cargo metadata to finish
-        let output = child
-            .wait_with_output()
-            .expect("Failed to wait on cargo metadata");
-        CargoDirectories::from_cargo(output)
+
+        // By default we dont use this code path because I've seen it take between 80-12ms on different machines.
+        // The only time this gets used is if the user manually configures cargo to use a different target directory via e.g. the CARGO_TARGET_DIR env var
+        // This is because:
+        // 1. In order for cargo-run-wasm to be running a target directory must have been created for the cargo-run-wasm binary to live in.
+        // 2. If the target directory is in its default location it can always be found by traversing parent directories because the workspace can only create its child packages in a child directory
+        CargoDirectories::from_cargo(cargo_executable, &manifest_dir)
     }
 }
