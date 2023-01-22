@@ -3,7 +3,6 @@ pub mod target_dir;
 use pico_args::Arguments;
 use std::env;
 use std::ffi::OsStr;
-use std::path::Path;
 use std::process::Command;
 use target_dir::CargoDirectories;
 
@@ -166,13 +165,12 @@ pub fn run_wasm_with_css(css: &str) {
     // build wasm example via cargo
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
 
-    let project_root = Path::new(&std::env::var("CARGO_MANIFEST_DIR").unwrap()).to_path_buf();
     let CargoDirectories {
         workspace_root,
         target_directory,
-    } = target_dir::get_target_directory(&cargo, &project_root);
+    } = CargoDirectories::new(&cargo);
     let target_target = target_directory.join("wasm-examples-target");
-    let mut cargo_args: Vec<&OsStr> = vec![
+    let mut cargo_args = vec![
         "build".as_ref(),
         "--target".as_ref(),
         "wasm32-unknown-unknown".as_ref(),
@@ -188,19 +186,19 @@ pub fn run_wasm_with_css(css: &str) {
     ];
 
     if let Some(package) = args.package.as_ref() {
-        cargo_args.extend([AsRef::<OsStr>::as_ref("--package"), package.as_ref()]);
+        cargo_args.extend([OsStr::new("--package"), package.as_ref()]);
     }
     if let Some(example) = args.example.as_ref() {
-        cargo_args.extend([AsRef::<OsStr>::as_ref("--example"), example.as_ref()]);
+        cargo_args.extend([OsStr::new("--example"), example.as_ref()]);
     }
     if let Some(bin) = args.bin.as_ref() {
-        cargo_args.extend([AsRef::<OsStr>::as_ref("--bin"), bin.as_ref()]);
+        cargo_args.extend([OsStr::new("--bin"), bin.as_ref()]);
     }
     if args.release {
         cargo_args.push("--release".as_ref());
     }
 
-    cargo_args.extend(args.build_args.iter().map(AsRef::<OsStr>::as_ref));
+    cargo_args.extend(args.build_args.iter().map(OsStr::new));
     let status = Command::new(&cargo)
         .current_dir(&workspace_root)
         .args(&cargo_args)
