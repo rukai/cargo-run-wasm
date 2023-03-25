@@ -69,14 +69,17 @@ struct Args {
 impl Args {
     pub fn from_env() -> Result<Self, String> {
         let mut args = Arguments::from_env();
-        let release = args.contains("--release");
+        let release = args.contains("--release") || args.contains("-r");
         let build_only = args.contains("--build-only");
         let help = args.contains("--help") || args.contains("-h");
 
         let host: Option<String> = args.opt_value_from_str("--host").unwrap();
         let port: Option<String> = args.opt_value_from_str("--port").unwrap();
 
-        let package: Option<String> = args.opt_value_from_str("--package").unwrap();
+        let package: Option<String> = args
+            .opt_value_from_str("--package")
+            .unwrap()
+            .or_else(|| args.opt_value_from_str("-p").unwrap());
         let example: Option<String> = args.opt_value_from_str("--example").unwrap();
         let bin: Option<String> = args.opt_value_from_str("--bin").unwrap();
 
