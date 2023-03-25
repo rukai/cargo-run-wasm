@@ -55,7 +55,7 @@ The equivalent of that is `cargo run-wasm --package name_of_current_package`
 
 struct Args {
     help: bool,
-    release: bool,
+    profile: Option<String>,
     build_only: bool,
     host: Option<String>,
     port: Option<String>,
@@ -69,7 +69,23 @@ struct Args {
 impl Args {
     pub fn from_env() -> Result<Self, String> {
         let mut args = Arguments::from_env();
-        let release = args.contains("--release") || args.contains("-r");
+
+        let release_arg = args.contains("--release") || args.contains("-r");
+        let profile_arg: Option<String> = args.opt_value_from_str("--profile").unwrap();
+        if release_arg && profile_arg.is_some() {
+            return Err(r#"conflicting usage of --profile and --release.
+The `--release` flag is the same as `--profile=release`.
+Remove one flag or the other to continue."#
+                .to_owned());
+        }
+        let profile = profile_arg.or_else(|| {
+            if release_arg {
+                Some("release".to_owned())
+            } else {
+                None
+            }
+        });
+
         let build_only = args.contains("--build-only");
         let help = args.contains("--help") || args.contains("-h");
 
@@ -111,7 +127,7 @@ impl Args {
 
         Ok(Args {
             help,
-            release,
+            profile,
             build_only,
             host,
             port,
@@ -163,7 +179,11 @@ pub fn run_wasm_with_css(css: &str) {
         return;
     }
 
-    let profile = if args.release { "release" } else { "debug" };
+    let profile_dir_name = match args.profile.as_deref() {
+        Some("dev") => "debug",
+        Some(profile) => profile,
+        None => "debug",
+    };
 
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
 
@@ -196,8 +216,8 @@ pub fn run_wasm_with_css(css: &str) {
     if let Some(bin) = args.bin.as_ref() {
         cargo_args.extend([OsStr::new("--bin"), bin.as_ref()]);
     }
-    if args.release {
-        cargo_args.push("--release".as_ref());
+    if let Some(profile) = &args.profile {
+        cargo_args.extend([OsStr::new("--profile"), profile.as_ref()]);
     }
 
     cargo_args.extend(args.build_args.iter().map(OsStr::new));
@@ -212,7 +232,9 @@ pub fn run_wasm_with_css(css: &str) {
     }
 
     // run wasm-bindgen on wasm file output by cargo, write to the destination folder
-    let target_profile = target_target.join("wasm32-unknown-unknown").join(profile);
+    let target_profile = target_target
+        .join("wasm32-unknown-unknown")
+        .join(profile_dir_name);
     let wasm_source = if args.example.is_some() {
         target_profile.join("examples")
     } else {
