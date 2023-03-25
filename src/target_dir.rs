@@ -42,11 +42,14 @@ impl CargoDirectories {
     pub fn new(cargo_executable: &str) -> CargoDirectories {
         let mut manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
 
-        // First try to find the target directory ourselves
-        // Its possible for this to return false positives if the user leaves a directory named target in the wrong spot.
+        // First try to find the directories ourselves.
+        // We can rely on Cargo.toml being correct as Cargo issues warnings when unused/incorrect Cargo.toml's are left around.
+        // It is however possible for this to return false positives if the user leaves an unused directory named target next to their Cargo.toml
+        // I think this is acceptable though.
         loop {
             let target = manifest_dir.join("target");
-            if target.exists() {
+            let cargo_toml = manifest_dir.join("Cargo.toml");
+            if target.exists() && cargo_toml.exists() {
                 return CargoDirectories {
                     target_directory: target,
                     workspace_root: manifest_dir,
