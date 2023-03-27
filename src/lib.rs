@@ -1,4 +1,4 @@
-pub mod target_dir;
+mod target_dir;
 
 use pico_args::Arguments;
 use std::env;
