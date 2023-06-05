@@ -75,7 +75,7 @@ impl Args {
         let release_arg = args.contains("--release") || args.contains("-r");
         let profile_arg: Option<String> = args.opt_value_from_str("--profile").unwrap();
         if release_arg && profile_arg.is_some() {
-            return Err(r#"conflicting usage of --profile and --release.
+            return Err(r#"conflicting usage of `--profile` and `--release`.
 The `--release` flag is the same as `--profile=release`.
 Remove one flag or the other to continue."#
                 .to_owned());
