@@ -53,7 +53,7 @@ Normally you can run just `cargo run` to run the main binary of the current pack
 The equivalent of that is `cargo run-wasm --package name_of_current_package`
 ";
 
-struct Args {
+pub struct Args {
     help: bool,
     profile: Option<String>,
     build_only: bool,
@@ -159,6 +159,17 @@ Remove one flag or the other to continue."#
 ///     cargo_run_wasm::run_wasm_with_css("body { margin: 0px; }");
 /// ```
 pub fn run_wasm_with_css(css: &str) {
+    let args = match Args::from_env() {
+        Ok(args) => args,
+        Err(err) => {
+            println!("{}\n\n{}", err, HELP);
+            return;
+        }
+    };
+    run_wasm_with_css_and_args(css, args)
+}
+
+pub fn run_wasm_with_css_and_args(css: &str, args: Args) {
     // validate css
     //
     // Someone could easily get around this with some extra spaces
@@ -169,13 +180,6 @@ pub fn run_wasm_with_css(css: &str) {
         )
     }
 
-    let args = match Args::from_env() {
-        Ok(args) => args,
-        Err(err) => {
-            println!("{}\n\n{}", err, HELP);
-            return;
-        }
-    };
     if args.help {
         println!("{}", HELP);
         return;
