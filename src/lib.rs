@@ -68,8 +68,10 @@ struct Args {
 
 impl Args {
     pub fn from_env() -> Result<Self, String> {
-        let mut args = Arguments::from_env();
+        Self::from_args(Arguments::from_env())
+    }
 
+    pub fn from_args(mut args: Arguments) -> Result<Self, String> {
         let release_arg = args.contains("--release") || args.contains("-r");
         let profile_arg: Option<String> = args.opt_value_from_str("--profile").unwrap();
         if release_arg && profile_arg.is_some() {
