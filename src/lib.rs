@@ -161,6 +161,7 @@ impl WasmRunner {
                 return;
             }
         };
+
         if args.help {
             println!("{}", HELP);
             return;
