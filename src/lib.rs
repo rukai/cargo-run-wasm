@@ -4,7 +4,6 @@ use pico_args::Arguments;
 use std::env;
 use std::ffi::OsStr;
 use std::process::Command;
-use std::str::pattern::Pattern;
 use target_dir::CargoDirectories;
 
 const HELP: &str = "\
@@ -144,7 +143,6 @@ Remove one flag or the other to continue."#
 pub struct WasmRunner {
     css: Option<String>,
     html: Option<String>,
-    args: Args,
 }
 
 impl WasmRunner {
@@ -152,8 +150,7 @@ impl WasmRunner {
         WasmRunnerBuilder::default()
     }
 
-    // run_wasm_with_css becomes private since it will be handled by the builder
-    fn run_wasm(&self) {
+    pub fn run(&self) {
         let args = match Args::from_env() {
             Ok(args) => args,
             Err(err) => {
@@ -256,9 +253,9 @@ impl WasmRunner {
             .unwrap_or_else(|| include_str!("index.template.html").to_owned());
         let mut index_processed = index_template.replace("{{name}}", &args.binary_name);
 
-        if let Some(css) = &self.css {
-            index_processed = index_processed.replace("{{css}}", css);
-        }
+        // Get css or empty string
+        let css: &str = self.css.as_deref().unwrap_or("");
+        index_processed = index_processed.replace("{{css}}", css);
 
         std::fs::write(example_dest.join("index.html"), index_processed).unwrap();
 
@@ -292,6 +289,22 @@ pub struct WasmRunnerBuilder {
     html: Option<String>,
 }
 
+/// Call this in your run-wasm application.
+///
+/// It will:
+/// 1. Get CLI args from env
+/// 2. Compile the rust project to wasm
+/// 3. Run wasm-bindgen
+/// 4. Generate an index.html that runs the wasm
+/// 5. Launch a tiny webserver to serve index.html + your wasm
+///
+/// It will block forever to keep the webserver running until killed with ctrl-c or similar
+///
+/// The css argument will be included directly into a `<style type="text/css"></style>` element in the generated page.
+/// By default the body element will include some margin, so for full page apps you will want to remove that by calling like:
+/// ```no_run
+///     cargo_run_wasm::WasmRunnerBuilder::new().css("body { margin: 0px; }").build().unwrap().run();
+/// ```
 impl WasmRunnerBuilder {
     pub fn new() -> Self {
         Self {
@@ -313,6 +326,9 @@ impl WasmRunnerBuilder {
         self
     }
 
+    /// Provide a custom html template.
+    ///
+    /// Must contain a <style> tag with {{css}} in it if css is provided
     pub fn html<S: Into<String>>(mut self, html: S) -> Self {
         self.html = Some(html.into());
         self
@@ -331,25 +347,6 @@ impl WasmRunnerBuilder {
         Ok(WasmRunner {
             css: self.css,
             html: self.html,
-            args,
         })
     }
 }
-
-/// Call this in your run-wasm application.
-///
-/// It will:
-/// 1. Get CLI args from env
-/// 2. Compile the rust project to wasm
-/// 3. Run wasm-bindgen
-/// 4. Generate an index.html that runs the wasm
-/// 5. Launch a tiny webserver to serve index.html + your wasm
-///
-/// It will block forever to keep the webserver running until killed with ctrl-c or similar
-///
-/// The css argument will be included directly into a `<style type="text/css"></style>` element in the generated page.
-/// By default the body element will include some margin, so for full page apps you will want to remove that by calling like:
-/// ```no_run
-///     cargo_run_wasm::run_wasm_with_css("body { margin: 0px; }");
-/// ```
-pub fn run_wasm_with_css(css: &str) {}
