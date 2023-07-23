@@ -63,7 +63,6 @@ struct Args {
     package: Option<String>,
     example: Option<String>,
     bin: Option<String>,
-    binary_name: String,
 }
 
 impl Args {
@@ -112,13 +111,6 @@ Remove one flag or the other to continue."#
             }
         }
 
-        let binary_name = match example.as_ref().or(bin.as_ref()).or(package.as_ref()) {
-            Some(name) => name.clone(),
-            None => {
-                return Err("Need to use at least one of `--package NAME`, `--example NAME` `--bin NAME`.\nRun cargo run-wasm --help for more info.".to_owned());
-            }
-        };
-
         let build_args = args
             .finish()
             .into_iter()
@@ -135,12 +127,243 @@ Remove one flag or the other to continue."#
             package,
             example,
             bin,
-            binary_name,
         })
     }
 }
 
-/// Call this in your run-wasm application.
+/// Low level control over run-wasm for integration within your own custom xtask
+///
+/// When `run()` is called it will:
+/// 1. Compile the rust project to wasm
+/// 2. Run wasm-bindgen
+/// 3. Generate an index.html that runs the wasm
+/// 4. Launch a tiny webserver to serve index.html + your wasm
+///
+/// It will block forever to keep the webserver running until killed with ctrl-c or similar
+///
+/// The css argument will be included directly into a `<style type="text/css"></style>` element in the generated page.
+/// By default the body element will include some margin, so for full page apps you will want to remove that by calling like:
+/// ```no_run
+///     cargo_run_wasm::run_wasm_cli_with_css("body { margin: 0px; }");
+/// ```
+struct RunWasm {
+    css: String,
+    profile: Option<String>,
+    bin: Option<String>,
+    example: Option<String>,
+    package: Option<String>,
+    cargo_build_args: Vec<String>,
+    build_only: bool,
+    host: Option<String>,
+    port: Option<String>,
+}
+
+impl RunWasm {
+    pub fn new() -> Self {
+        RunWasm {
+            css: "".to_owned(),
+            profile: None,
+            bin: None,
+            example: None,
+            package: None,
+            cargo_build_args: vec![],
+            build_only: false,
+            host: None,
+            port: None,
+        }
+    }
+
+    /// css to include on the served webpage.
+    /// By default no css is included, which results in the default webpage styling which includes margins around the body.
+    /// It is common to want a fullscreen wasm gui with no webpage margins which can be achieved via `with_css("body { margin: 0px; }")`.
+    pub fn with_css(mut self, css: &str) -> Self {
+        // validate css
+        //
+        // Someone could easily get around this with some extra spaces
+        // but im not about to import regex or do a complicated implementation by hand.
+        if css.contains("</style>") {
+            panic!(
+            "`</style>` detected in the css. This is disallowed to prevent injecting elements into the DOM."
+        )
+        }
+        self.css = css.to_owned();
+        self
+    }
+
+    /// Package with the target to run
+    pub fn with_package(mut self, package: Option<String>) -> Self {
+        self.package = package;
+        self
+    }
+
+    /// Name of the example target to run
+    pub fn with_example(mut self, example: Option<String>) -> Self {
+        self.example = example;
+        self
+    }
+
+    /// Name of the bin target to run
+    pub fn with_bin(mut self, bin: Option<String>) -> Self {
+        self.bin = bin;
+        self
+    }
+
+    /// Build artifacts with the specified profile
+    pub fn with_profile(mut self, profile: Option<String>) -> Self {
+        self.profile = profile;
+        self
+    }
+
+    // Pass raw cargo flags for anything not already handled by `RunWasm::with_*` methods.
+    // Warning: Do not use this for any flags already handled by `RunWasm::with_*` or run-wasm's internal invariants will be broken.
+    // e.g. `with_cargo_build_args(vec!["--color", "always", "--locked"])`
+    pub fn with_cargo_build_args(mut self, cargo_build_args: Vec<String>) -> Self {
+        self.cargo_build_args = cargo_build_args;
+        self
+    }
+
+    /// Only build the WASM artifacts, do not run the dev server
+    pub fn with_build_only(mut self, build_only: bool) -> Self {
+        self.build_only = build_only;
+        self
+    }
+
+    /// Makes the dev server listen on host (default 'localhost')
+    pub fn with_host(mut self, host: Option<String>) -> Self {
+        self.host = host;
+        self
+    }
+
+    /// Makes the dev server listen on port (default '8000')
+    pub fn with_port(mut self, port: Option<String>) -> Self {
+        self.port = port;
+        self
+    }
+
+    /// Launch run-wasm
+    pub fn run(self) -> Result<(), String> {
+        let binary_name = match self
+            .example
+            .as_ref()
+            .or(self.bin.as_ref())
+            .or(self.package.as_ref())
+        {
+            Some(name) => name.to_owned(),
+            None => {
+                return Err("Need to use at least one of `--package NAME`, `--example NAME` `--bin NAME`.\nRun cargo run-wasm --help for more info.".to_owned());
+            }
+        };
+
+        let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+
+        let CargoDirectories {
+            workspace_root,
+            target_directory,
+        } = CargoDirectories::new(&cargo);
+        let target_target = target_directory.join("wasm-examples-target");
+        let mut cargo_args = vec![
+            "build".as_ref(),
+            "--target".as_ref(),
+            "wasm32-unknown-unknown".as_ref(),
+            // It is common to setup a faster linker such as mold or lld to run for just your native target.
+            // It cant be set for wasm as wasm doesnt support building with these linkers.
+            // This results in a separate rustflags value for native and wasm builds.
+            // Currently rust triggers a full rebuild every time the rustflags value changes.
+            //
+            // Therefore we have this hack where we use a different target dir for wasm builds to avoid constantly triggering full rebuilds.
+            // When this issue is resolved we might be able to remove this hack: https://github.com/rust-lang/cargo/issues/8716
+            "--target-dir".as_ref(),
+            target_target.as_os_str(),
+        ];
+
+        if let Some(package) = self.package.as_ref() {
+            cargo_args.extend([OsStr::new("--package"), package.as_ref()]);
+        }
+        if let Some(example) = self.example.as_ref() {
+            cargo_args.extend([OsStr::new("--example"), example.as_ref()]);
+        }
+        if let Some(bin) = self.bin.as_ref() {
+            cargo_args.extend([OsStr::new("--bin"), bin.as_ref()]);
+        }
+        if let Some(profile) = self.profile.as_ref() {
+            cargo_args.extend([OsStr::new("--profile"), profile.as_ref()]);
+        }
+
+        cargo_args.extend(self.cargo_build_args.iter().map(OsStr::new));
+        let status = Command::new(&cargo)
+            .current_dir(&workspace_root)
+            .args(&cargo_args)
+            .status()
+            .unwrap();
+        if !status.success() {
+            // We can return without printing anything because cargo will have already displayed an appropriate error.
+            return Err("Failed due to cargo error".to_owned());
+        }
+
+        let profile_dir_name = match self.profile.as_deref() {
+            Some("dev") => "debug",
+            Some(profile) => profile,
+            None => "debug",
+        };
+
+        // run wasm-bindgen on wasm file output by cargo, write to the destination folder
+        let target_profile = target_target
+            .join("wasm32-unknown-unknown")
+            .join(profile_dir_name);
+        let wasm_source = if self.example.is_some() {
+            target_profile.join("examples")
+        } else {
+            target_profile
+        }
+        .join(format!("{}.wasm", binary_name));
+
+        if !wasm_source.exists() {
+            return Err("There is no binary at {wasm_source:?}, maybe you used `--package NAME` on a package that has no binary?".to_owned());
+        }
+
+        let example_dest = target_directory.join("wasm-examples").join(&binary_name);
+        std::fs::create_dir_all(&example_dest).unwrap();
+        let mut bindgen = wasm_bindgen_cli_support::Bindgen::new();
+        bindgen
+            .web(true)
+            .unwrap()
+            .omit_default_module_path(false)
+            .input_path(&wasm_source)
+            .generate(&example_dest)
+            .unwrap();
+
+        // process template index.html and write to the destination folder
+        let index_template = include_str!("index.template.html");
+        let index_processed = index_template
+            .replace("{{name}}", &binary_name)
+            // This is fine because a replaced {{name}} cant contain `{{css}} ` due to `{` not being valid in a crate name
+            .replace("{{css}}", &self.css);
+        std::fs::write(example_dest.join("index.html"), index_processed).unwrap();
+
+        if !self.build_only {
+            let host = self.host.unwrap_or_else(|| "localhost".into());
+            let port = self
+                .port
+                .unwrap_or_else(|| "8000".into())
+                .parse()
+                .expect("Port should be an integer");
+
+            // run webserver on destination folder
+            println!("\nServing `{}` on http://{}:{}", binary_name, host, port);
+            devserver_lib::run(
+                &host,
+                port,
+                example_dest.as_os_str().to_str().unwrap(),
+                false,
+                "",
+            );
+        }
+
+        Ok(())
+    }
+}
+
+/// High-level function that can be called as your entire run-wasm application.
 ///
 /// It will:
 /// 1. Get CLI args from env
@@ -154,19 +377,9 @@ Remove one flag or the other to continue."#
 /// The css argument will be included directly into a `<style type="text/css"></style>` element in the generated page.
 /// By default the body element will include some margin, so for full page apps you will want to remove that by calling like:
 /// ```no_run
-///     cargo_run_wasm::run_wasm_with_css("body { margin: 0px; }");
+///     cargo_run_wasm::run_wasm_cli_with_css("body { margin: 0px; }");
 /// ```
-pub fn run_wasm_with_css(css: &str) {
-    // validate css
-    //
-    // Someone could easily get around this with some extra spaces
-    // but im not about to import regex or do a complicated implementation by hand.
-    if css.contains("</style>") {
-        panic!(
-            "`</style>` detected in the css. This is disallowed to prevent injecting elements into the DOM."
-        )
-    }
-
+pub fn run_wasm_cli_with_css(css: &str) {
     let args = match Args::from_env() {
         Ok(args) => args,
         Err(err) => {
@@ -179,114 +392,23 @@ pub fn run_wasm_with_css(css: &str) {
         return;
     }
 
-    let profile_dir_name = match args.profile.as_deref() {
-        Some("dev") => "debug",
-        Some(profile) => profile,
-        None => "debug",
-    };
-
-    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
-
-    let CargoDirectories {
-        workspace_root,
-        target_directory,
-    } = CargoDirectories::new(&cargo);
-    let target_target = target_directory.join("wasm-examples-target");
-    let mut cargo_args = vec![
-        "build".as_ref(),
-        "--target".as_ref(),
-        "wasm32-unknown-unknown".as_ref(),
-        // It is common to setup a faster linker such as mold or lld to run for just your native target.
-        // It cant be set for wasm as wasm doesnt support building with these linkers.
-        // This results in a separate rustflags value for native and wasm builds.
-        // Currently rust triggers a full rebuild every time the rustflags value changes.
-        //
-        // Therefore we have this hack where we use a different target dir for wasm builds to avoid constantly triggering full rebuilds.
-        // When this issue is resolved we might be able to remove this hack: https://github.com/rust-lang/cargo/issues/8716
-        "--target-dir".as_ref(),
-        target_target.as_os_str(),
-    ];
-
-    if let Some(package) = args.package.as_ref() {
-        cargo_args.extend([OsStr::new("--package"), package.as_ref()]);
+    if let Err(err) = RunWasm::new()
+        .with_css(css)
+        .with_package(args.package)
+        .with_example(args.example)
+        .with_bin(args.bin)
+        .with_profile(args.profile)
+        .with_cargo_build_args(args.build_args)
+        .with_build_only(args.build_only)
+        .with_host(args.host)
+        .with_port(args.port)
+        .run()
+    {
+        println!("{err}")
     }
-    if let Some(example) = args.example.as_ref() {
-        cargo_args.extend([OsStr::new("--example"), example.as_ref()]);
-    }
-    if let Some(bin) = args.bin.as_ref() {
-        cargo_args.extend([OsStr::new("--bin"), bin.as_ref()]);
-    }
-    if let Some(profile) = &args.profile {
-        cargo_args.extend([OsStr::new("--profile"), profile.as_ref()]);
-    }
+}
 
-    cargo_args.extend(args.build_args.iter().map(OsStr::new));
-    let status = Command::new(&cargo)
-        .current_dir(&workspace_root)
-        .args(&cargo_args)
-        .status()
-        .unwrap();
-    if !status.success() {
-        // We can return without printing anything because cargo will have already displayed an appropriate error.
-        return;
-    }
-
-    // run wasm-bindgen on wasm file output by cargo, write to the destination folder
-    let target_profile = target_target
-        .join("wasm32-unknown-unknown")
-        .join(profile_dir_name);
-    let wasm_source = if args.example.is_some() {
-        target_profile.join("examples")
-    } else {
-        target_profile
-    }
-    .join(format!("{}.wasm", args.binary_name));
-
-    if !wasm_source.exists() {
-        println!("There is no binary at {wasm_source:?}, maybe you used `--package NAME` on a package that has no binary?");
-        return;
-    }
-
-    let example_dest = target_directory
-        .join("wasm-examples")
-        .join(&args.binary_name);
-    std::fs::create_dir_all(&example_dest).unwrap();
-    let mut bindgen = wasm_bindgen_cli_support::Bindgen::new();
-    bindgen
-        .web(true)
-        .unwrap()
-        .omit_default_module_path(false)
-        .input_path(&wasm_source)
-        .generate(&example_dest)
-        .unwrap();
-
-    // process template index.html and write to the destination folder
-    let index_template = include_str!("index.template.html");
-    let index_processed = index_template
-        .replace("{{name}}", &args.binary_name)
-        // This is fine because a replaced {{name}} cant contain `{{css}} ` due to `{` not being valid in a crate name
-        .replace("{{css}}", css);
-    std::fs::write(example_dest.join("index.html"), index_processed).unwrap();
-
-    if !args.build_only {
-        let host = args.host.unwrap_or_else(|| "localhost".into());
-        let port = args
-            .port
-            .unwrap_or_else(|| "8000".into())
-            .parse()
-            .expect("Port should be an integer");
-
-        // run webserver on destination folder
-        println!(
-            "\nServing `{}` on http://{}:{}",
-            args.binary_name, host, port
-        );
-        devserver_lib::run(
-            &host,
-            port,
-            example_dest.as_os_str().to_str().unwrap(),
-            false,
-            "",
-        );
-    }
+#[deprecated(note = "renamed to run_wasm_cli_with_css")]
+pub fn run_wasm_with_css(css: &str) {
+    run_wasm_cli_with_css(css)
 }

@@ -50,7 +50,7 @@ cargo-run-wasm = "0.3.0"
 
 ```rust
 fn main() {
-    cargo_run_wasm::run_wasm_with_css("body { margin: 0px; }");
+    cargo_run_wasm::run_wasm_cli_with_css("body { margin: 0px; }");
 }
 ```
 
@@ -82,7 +82,7 @@ cargo-run-wasm is not available as a [cargo custom command](https://doc.rust-lan
 
 ## Configuration
 
-If you wish to set custom css, do so in the string argument to `run_wasm_with_css`.
+If you wish to set custom css, do so in the string argument to `run_wasm_cli_with_css`.
 
 However it is not possible to set custom html from cargo-run-wasm, instead any DOM elements you require should be created from within your crate or example using [web-sys](https://docs.rs/web-sys/latest/web_sys/struct.Document.html#method.create_element) or another crate.
 The reasoning is that in the case an example requires custom HTML it will probably:
