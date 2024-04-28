@@ -1,7 +1,6 @@
 name: Testing
 
 on:
-  # TODO: Make sure to change these if your still using "master" for the name of your main branch.
   push:
     branches: [ main ]
   pull_request:
@@ -41,8 +40,8 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}
     steps:
-    - uses: actions/checkout@v2
-    - uses: Swatinem/rust-cache@v1
+    - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
       with:
         # rust-cache already handles all the sane defaults for caching rust builds.
         # However because we are running separate debug/release builds in parallel,
@@ -50,7 +49,9 @@ jobs:
         # Otherwise only the last build to finish would get saved to the cache.
         key: ${{ matrix.name }}
     - name: Install cargo-hack
-      run: cargo install cargo-hack --version 0.5.8
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-hack@0.6.28
     - name: Check `cargo fmt` was run
       run: cargo fmt --all -- --check
     # If your library does not support running under every possible combination of features,
