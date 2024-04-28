@@ -63,7 +63,7 @@ run-wasm = "run --release --package run-wasm --"
 
 4. Thats it, you can now run the commands described earlier. You can also run `cargo run-wasm --help` to view all the possible flags.
 
-Note: If you want to avoid restructuring your project into a proper workspace you can do so by combining your workspace and crate `Cargo.toml` into a single file like [winit does](https://github.com/rust-windowing/winit/blob/master/Cargo.toml#L144).
+Note: If you want to avoid restructuring your project into a proper workspace you can do so by combining your workspace and crate `Cargo.toml` into a single file like [winit does](https://github.com/rust-windowing/winit/blob/337d50779c299240f6e0a67ef3e852f1c971cf16/Cargo.toml#L315).
 
 ## Advantages over an equivalent bash/powershell/bat script
 
