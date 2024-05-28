@@ -92,7 +92,7 @@ The reasoning is that in the case an example requires custom HTML it will probab
 
 ## MSRV
 
-Since this tool has a trivial implementation the MSRV is at 1.59 and will only be increased if dependencies require it.
+Since this tool has a trivial implementation the MSRV is at 1.70 and will only be increased if dependencies require it.
 If it is ever increased it must be below the MSRV of maintained branches of important users such as [wgpu](https://github.com/gfx-rs/wgpu#msrv-policy) and [winit](https://github.com/rust-windowing/winit).
 
 The MSRV is enforced in CI and locally via the `rust-toolchain.toml` file.
