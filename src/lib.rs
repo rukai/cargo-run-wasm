@@ -1,3 +1,5 @@
+#![allow(clippy::new_without_default)]
+
 mod target_dir;
 
 use pico_args::Arguments;
@@ -66,7 +68,7 @@ struct Args {
 }
 
 impl Args {
-    pub fn from_env() -> Result<Self, String> {
+    fn from_env() -> Result<Self, String> {
         let mut args = Arguments::from_env();
 
         let release_arg = args.contains("--release") || args.contains("-r");
@@ -140,13 +142,7 @@ Remove one flag or the other to continue."#
 /// 4. Launch a tiny webserver to serve index.html + your wasm
 ///
 /// It will block forever to keep the webserver running until killed with ctrl-c or similar
-///
-/// The css argument will be included directly into a `<style type="text/css"></style>` element in the generated page.
-/// By default the body element will include some margin, so for full page apps you will want to remove that by calling like:
-/// ```no_run
-///     cargo_run_wasm::run_wasm_cli_with_css("body { margin: 0px; }");
-/// ```
-struct RunWasm {
+pub struct RunWasm {
     css: String,
     profile: Option<String>,
     bin: Option<String>,
@@ -175,7 +171,13 @@ impl RunWasm {
 
     /// css to include on the served webpage.
     /// By default no css is included, which results in the default webpage styling which includes margins around the body.
-    /// It is common to want a fullscreen wasm gui with no webpage margins which can be achieved via `with_css("body { margin: 0px; }")`.
+    /// It is common to want a fullscreen wasm gui with no webpage margins which can be achieved via:
+    /// ```no_run
+    /// # use cargo_run_wasm::RunWasm;
+    /// RunWasm::new()
+    ///     .with_css("body { margin: 0px; }")
+    ///     .run();
+    /// ```
     pub fn with_css(mut self, css: &str) -> Self {
         // validate css
         //
