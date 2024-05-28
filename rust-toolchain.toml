@@ -1,4 +1,4 @@
 [toolchain]
-# This is old because we commit to an MSRV, for more info refer to https://github.com/rukai/cargo-run-wasm#license
-channel = "1.64"
+# This is old because we commit to an MSRV, for more info refer to https://github.com/rukai/cargo-run-wasm#msrv
+channel = "1.70"
 components = [ "rustfmt", "clippy" ]
